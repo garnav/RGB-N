@@ -252,6 +252,7 @@ class resnet_fusion(Network):
       # rcnn
       if cfg.POOLING_MODE == 'crop':
         pool5 = self._crop_pool_layer(net_conv4, rois, "pool5")
+        self._layers['pool5']=pool5
         #pool5 = self._crop_pool_layer(net_sum, rois, "pool5")
       else:
         raise NotImplementedError
@@ -281,7 +282,7 @@ class resnet_fusion(Network):
       noise_cls_score = slim.fully_connected(bilinear_pool, self._num_classes, weights_initializer=tf.contrib.layers.xavier_initializer(),
                                        trainable=is_training, activation_fn=None, scope='cls_score')
       cls_prob = self._softmax_layer(noise_cls_score, "cls_prob")
-      fc7 = tf.reduce_mean(fc7, axis=[1, 2])    
+      fc7 = tf.reduce_mean(fc7, axis=[1, 2])
 
 
 
@@ -328,5 +329,5 @@ class resnet_fusion(Network):
         restorer_fc = tf.train.Saver({self._resnet_scope + "/conv1/weights": conv1_rgb})
         restorer_fc.restore(sess, pretrained_model)
 
-        sess.run(tf.assign(self._variables_to_fix[self._resnet_scope + '/conv1/weights:0'], 
+        sess.run(tf.assign(self._variables_to_fix[self._resnet_scope + '/conv1/weights:0'],
                            tf.reverse(conv1_rgb, [False,False,True,False])))
