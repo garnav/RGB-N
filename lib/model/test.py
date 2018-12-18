@@ -16,13 +16,13 @@ except ImportError:
 import os
 import math
 
-from utils.timer import Timer
-from utils.cython_nms import nms, nms_new
-from utils.boxes_grid import get_boxes_grid
-from utils.blob import im_list_to_blob
+from ..utils.timer import Timer
+#from ..utils.cython_nms import nms, nms_new
+from ..utils.boxes_grid import get_boxes_grid
+from ..utils.blob import im_list_to_blob
 import pdb
-from model.config import cfg, get_output_dir
-from model.bbox_transform import clip_boxes, bbox_transform_inv
+from .config import cfg, get_output_dir
+from .bbox_transform import clip_boxes, bbox_transform_inv
 
 def _get_image_blob(im):
   """Converts an image into a network input.
@@ -170,7 +170,7 @@ def test_net(sess, net, imdb, weights_filename, max_per_image=100, thresh=0.0):
   output_dir = get_output_dir(imdb, weights_filename)
   if os.path.isfile(os.path.join(output_dir, 'detections.pkl')):
     all_boxes=pickle.load(open(os.path.join(output_dir, 'detections.pkl'),'r'))
-  else:  
+  else:
     # timers
     _t = {'im_detect' : Timer(), 'misc' : Timer()}
 
@@ -215,4 +215,3 @@ def test_net(sess, net, imdb, weights_filename, max_per_image=100, thresh=0.0):
 
   print('Evaluating detections')
   imdb.evaluate_detections(all_boxes, output_dir)
-

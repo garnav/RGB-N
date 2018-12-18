@@ -13,6 +13,7 @@ from tensorflow.contrib.slim import losses
 from tensorflow.contrib.slim import arg_scope
 
 import numpy as np
+import pickle
 
 from layer_utils.snippets import generate_anchors_pre
 from layer_utils.proposal_layer import proposal_layer
@@ -59,7 +60,7 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     image = tf.image.draw_bounding_boxes(image, boxes)
 
-
+    
     return tf.summary.image('ground_truth', image)
 
   def _add_noise_summary(self, noise, boxes):
@@ -81,7 +82,7 @@ class Network(object):
     boxes = tf.expand_dims(boxes, dim=0)
     noise = tf.image.draw_bounding_boxes(noise, boxes)
 
-
+    
     return tf.summary.image('noise', noise)
   def _add_act_summary(self, tensor):
     tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)
@@ -266,7 +267,7 @@ class Network(object):
       rpn_cls_score = tf.reshape(tf.gather(rpn_cls_score, rpn_select), [-1, 2])
       rpn_label = tf.reshape(tf.gather(rpn_label, rpn_select), [-1])
       rpn_cross_entropy_n = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=rpn_cls_score, labels=rpn_label)
-
+      
 
       if cfg.TRAIN.HNM:
         fg = tf.equal(rpn_label,1)
@@ -294,7 +295,7 @@ class Network(object):
       else:
         rpn_loss_box = self._smooth_l1_loss(rpn_bbox_pred, rpn_bbox_targets, rpn_bbox_inside_weights,
                                           rpn_bbox_outside_weights, sigma=sigma_rpn, dim=[1, 2, 3])
-
+    
       if cfg.TRAIN.HNM:
         fg = tf.equal(rpn_label,1)
         bg = tf.equal(rpn_label,1)
@@ -311,7 +312,7 @@ class Network(object):
         cross_entropy = tf.reduce_mean(
           tf.nn.sparse_softmax_cross_entropy_with_logits(
             logits=tf.reshape(cls_score, [-1, self._num_classes]), labels=label))
-      else:
+      else:       
         # RCNN, class loss
         cls_score = self._predictions["cls_score"]
         label = tf.reshape(self._proposal_targets["labels"], [-1])
@@ -370,10 +371,10 @@ class Network(object):
 
     # list as many types of layers as possible, even if they are not used now
     with arg_scope([slim.conv2d, slim.conv2d_in_plane, \
-                    slim.conv2d_transpose, slim.separable_conv2d, slim.fully_connected],
+                    slim.conv2d_transpose, slim.separable_conv2d, slim.fully_connected], 
                     weights_regularizer=weights_regularizer,
-                    biases_regularizer=biases_regularizer,
-                    biases_initializer=tf.constant_initializer(0.0)):
+                    biases_regularizer=biases_regularizer, 
+                    biases_initializer=tf.constant_initializer(0.0)): 
       rois, cls_prob, bbox_pred = self.build_network(sess, training)
 
     layers_to_output = {'rois': rois}
@@ -394,7 +395,7 @@ class Network(object):
     val_summaries = []
     with tf.device("/cpu:0"):
       val_summaries.append(self._add_image_summary(self._image, self._gt_boxes))
-      val_summaries.append(self._add_noise_summary(self._layers['noise'], self._gt_boxes))
+      val_summaries.append(self._add_noise_summary(self._layers['noise'], self._gt_boxes))      
       for key, var in self._event_summaries.items():
         val_summaries.append(tf.summary.scalar(key, var))
       for key, var in self._score_summaries.items():
@@ -424,21 +425,38 @@ class Network(object):
     return feat
 
   def get_roi_features(self, sess, image, noise, im_info):
-    feed_dict = {self._image: image,self.noise: noise,
-                   self._im_info: im_info}
+    feed_dict = {self._image: image,self.noise: noise, self._im_info: im_info}
 
-    roi_features, _, _, _, rois, _, _ = sess.run([self._layers["pool5"],
+    roi_features, _, _, _, rois, bb, _, _ = sess.run([self._layers["pool5"],
                                                   self._predictions["cls_score"],
                                                   self._predictions['cls_prob'],
                                                   self._predictions['bbox_pred'],
                                                   self._predictions['rois'],
+                                                  self._predictions['bbox_pred'],
                                                   self._layers['fc7'],
                                                   'noise_pred/cls_score/weights:0'],
                                                   feed_dict=feed_dict)
+    #print(rois)
+    with open("trial.pkl", 'wb') as f:
+        pickle.dump((roi_features, rois, bb), f)
     return roi_features, rois
 
+  def get_roi_and_preds(self, sess, image, noise, im_info):
+    feed_dict = {self._image: image,self.noise: noise,
+                 self._im_info: im_info}
+    roi_features, _, class_probs, _, rois, bb_delta, _, _ = sess.run([self._layers["pool5"],
+                                                                        self._predictions["cls_score"],
+                                                                        self._predictions['cls_prob'],
+                                                                        self._predictions['rpn_bbox_pred'],
+                                                                        self._predictions['rois'],
+                                                                        self._predictions['bbox_pred'],
+                                                                        self._layers['fc7'],
+                                                                        'noise_pred/cls_score/weights:0'],
+                                                                        feed_dict=feed_dict)
+    return roi_features, rois, class_probs, bb_delta
+
   # only useful during testing mode
-  def test_image(self, sess, image,noise, im_info):
+  def test_image(self, sess, image, im_info):
     feed_dict = {self._image: image,self.noise: noise,
                  self._im_info: im_info}
     cls_score, cls_prob, bbox_pred, rois,feat,s = sess.run([self._predictions["cls_score"],
@@ -487,3 +505,4 @@ class Network(object):
     feed_dict = {self._image: blobs['data'], self.noise: blobs['noise'], self._im_info: blobs['im_info'],
                  self._gt_boxes: blobs['gt_boxes']}
     sess.run([train_op], feed_dict=feed_dict)
+

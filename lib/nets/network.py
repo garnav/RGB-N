@@ -364,6 +364,19 @@ class Network(object):
                                                     feed_dict=feed_dict)
     return cls_score, cls_prob, bbox_pred, rois, feat, s
 
+  def get_roi_features(self, sess, image, noise, im_info):
+    feed_dict = {self._image: image,self.noise: noise, self._im_info: im_info}
+
+    roi_features, _, _, _, rois, _, _ = sess.run([self._layers["pool5"],
+                                                  self._predictions["cls_score"],
+                                                  self._predictions['cls_prob'],
+                                                  self._predictions['bbox_pred'],
+                                                  self._predictions['rois'],
+                                                  self._layers['fc7'],
+                                                  'noise_pred/cls_score/weights:0'],
+                                                  feed_dict=feed_dict)
+    return roi_features, roi
+
   def get_summary(self, sess, blobs):
     feed_dict = {self._image: blobs['data'], self._im_info: blobs['im_info'],
                  self._gt_boxes: blobs['gt_boxes']}

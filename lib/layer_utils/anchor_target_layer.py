@@ -9,11 +9,14 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-from model.config import cfg
+from lib.model.config import cfg
 import numpy as np
 import numpy.random as npr
-from utils.cython_bbox import bbox_overlaps
-from model.bbox_transform import bbox_transform
+#from lib.utils.cython_bbox import bbox_overlaps
+#from ctypes import *
+#cython_bbox = CDLL('cython_bbox.so')
+#from cython_bbox import bbox_overlaps #ISSUE
+from lib.model.bbox_transform import bbox_transform
 
 def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anchors, num_anchors):
   """Same as the anchor target layer in original Fast/er RCNN """
@@ -45,7 +48,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, _feat_stride, all_anch
 
   # overlaps between the anchors and the gt boxes
   # overlaps (ex, gt)
-  overlaps = bbox_overlaps(
+  overlaps = cython_bbox.bbox_overlaps(
     np.ascontiguousarray(anchors, dtype=np.float),
     np.ascontiguousarray(gt_boxes, dtype=np.float))
   argmax_overlaps = overlaps.argmax(axis=1)
